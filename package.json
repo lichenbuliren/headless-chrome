@@ -1,0 +1,20 @@
+{
+  "name": "headless-chrome",
+  "version": "1.0.0",
+  "description": "headless chrome deom",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "keywords": [
+    "headless",
+    "chrome"
+  ],
+  "author": "lichenbuliren",
+  "license": "MIT",
+  "dependencies": {
+    "chrome-remote-interface": "^0.23.2",
+    "lighthouse": "^2.1.0",
+    "minimist": "^1.2.0"
+  }
+}
