@@ -1,6 +1,4 @@
-import util from './util';
-const chromeLauncher = require('lighthouse/chrome-launcher/chrome-launcher');
-const CDP = require('chrome-remote-interface');
+const util = require('./util');
 const argv = require('minimist')(process.argv.slice(2));
 const fs = require('fs');
 
@@ -13,117 +11,113 @@ const delay = argv.delay || 0;
 const userAgent = argv.userAgent;
 const fullPage = argv.full || true;
 
-async function launchChrome(headless = true) {
-  return await chromeLauncher.launch({
-    chromeFlags: [
-      '--disable-gpu',
-      '--hide-scrollbars',
-      headless ? '--headless' : ''
-    ]
-  });
-}
-
 init();
 
 async function init() {
-  try {
-    const chrome = await launchChrome();
-    const protocol = await CDP({
-      port: chrome.port
+  const {
+    chrome,
+    protocol
+  } = await util.devInit();
+
+  const {
+    Page,
+    DOM,
+    Runtime,
+    Emulation,
+    Network
+  } = protocol;
+
+  await Promise.all([
+    Page.enable(),
+    DOM.enable(),
+    Runtime.enable(),
+    Network.enable()
+  ]);
+
+  if (userAgent) {
+    await Network.setUserAgentOverrride({
+      userAgent
+    });
+  }
+
+  const deviceMetrics = {
+    width: viewportWidth,
+    height: viewportHeight,
+    deviceScaleFactor: 0,
+    mobile: false,
+    fitWindow: false
+  };
+
+  await Emulation.setDeviceMetricsOverride(deviceMetrics);
+  await Emulation.setVisibleSize({
+    width: viewportWidth,
+    height: viewportHeight
+  });
+
+  await Page.navigate({
+    url
+  });
+
+  Page.loadEventFired(async () => {
+    const scrollToBottom = fs.readFileSync('./scrollBottom.js', {
+      encoding: 'UTF-8'
+    });
+    console.log(scrollToBottom);
+
+    const evaluate = await Runtime.evaluate({
+      expression: scrollToBottom
+    })
+
+    const {
+      root: {
+        nodeId: documentNodeId
+      }
+    } = await DOM.getDocument();
+    const {
+      nodeId: bodyNodeId
+    } = await DOM.querySelector({
+      selector: 'body',
+      nodeId: documentNodeId
     });
 
     const {
-      Page,
-      DOM,
-      Runtime,
-      Emulation,
-      Network
-    } = protocol;
+      model: {
+        height: bodyHeight
+      }
+    } = await DOM.getBoxModel({
+      nodeId: bodyNodeId
+    });
 
-    await Promise.all([
-      Page.enable(),
-      DOM.enable(),
-      Runtime.enable(),
-      Network.enable()
-    ]);
-
-    if (userAgent) {
-      await Network.setUserAgentOverrride({
-        userAgent
-      });
-    }
-
-    const deviceMetrics = {
-      width: viewportWidth,
-      height: viewportHeight,
-      deviceScaleFactor: 0,
-      mobile: false,
-      fitWindow: false
-    };
-
-    await Emulation.setDeviceMetricsOverride(deviceMetrics);
     await Emulation.setVisibleSize({
       width: viewportWidth,
-      height: viewportHeight
+      height: evaluate.result.value
     });
 
-    await Page.navigate({
-      url
+    await Emulation.forceViewport({
+      x: 0,
+      y: 0,
+      scale: 1
     });
 
-    Page.loadEventFired(async() => {
-      const scrollToBottom = fs.readFileSync('./scrollBottom.js', {
-        encoding: 'UTF-8'
+    setTimeout(async function () {
+      const screenshot = await Page.captureScreenshot({
+        format,
+        fromSurface: true
       });
-      console.log(scrollToBottom);
+      const buffer = new Buffer(screenshot.data, 'base64');
 
-      const evaluate = await Runtime.evaluate({
-        expression: scrollToBottom
-      })
+      fs.writeFile('screenshot.png', buffer, 'base64', (err) => {
+        if (err) {
+          console.error(err);
+        } else {
+          console.log('Screenshot saved');
+        }
 
-      const {root: {nodeId: documentNodeId}} = await DOM.getDocument();
-      const {nodeId: bodyNodeId} = await DOM.querySelector({
-        selector: 'body',
-        nodeId: documentNodeId
-      });
-
-      const {model: {height: bodyHeight}} = await DOM.getBoxModel({
-        nodeId: bodyNodeId
-      });
-
-      await Emulation.setVisibleSize({
-        width: viewportWidth,
-        height: evaluate.result.value
-      });
-
-      await Emulation.forceViewport({
-        x: 0,
-        y: 0,
-        scale: 1
-      });
-
-      setTimeout(async function () {
-        const screenshot = await Page.captureScreenshot({
-          format,
-          fromSurface: true
+        util({
+          chrome,
+          protocol
         });
-        const buffer = new Buffer(screenshot.data, 'base64');
-
-        fs.writeFile('screenshot.png', buffer, 'base64', (err) => {
-          if (err) {
-            console.error(err);
-          } else {
-            console.log('Screenshot saved');
-          }
-
-          util({
-            chrome,
-            protocol
-          });
-        })
-      }, 2000);
-    });
-  } catch (e) {
-    console.error('Exception while taking screenshot:', e);
-  }
+      })
+    }, 2000);
+  });
 };
