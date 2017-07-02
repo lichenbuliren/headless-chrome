@@ -1,3 +1,4 @@
+import util from './util';
 const chromeLauncher = require('lighthouse/chrome-launcher/chrome-launcher');
 const CDP = require('chrome-remote-interface');
 const argv = require('minimist')(process.argv.slice(2));
@@ -66,11 +67,19 @@ async function init() {
       height: viewportHeight
     });
 
-    Page.navigate({
+    await Page.navigate({
       url
     });
 
     Page.loadEventFired(async() => {
+      const scrollToBottom = fs.readFileSync('./scrollBottom.js', {
+        encoding: 'UTF-8'
+      });
+      console.log(scrollToBottom);
+
+      const evaluate = await Runtime.evaluate({
+        expression: scrollToBottom
+      })
 
       const {root: {nodeId: documentNodeId}} = await DOM.getDocument();
       const {nodeId: bodyNodeId} = await DOM.querySelector({
@@ -82,11 +91,9 @@ async function init() {
         nodeId: bodyNodeId
       });
 
-      console.log('bodyBox: ', bodyHeight);
-
       await Emulation.setVisibleSize({
         width: viewportWidth,
-        height: bodyHeight
+        height: evaluate.result.value
       });
 
       await Emulation.forceViewport({
@@ -109,10 +116,12 @@ async function init() {
             console.log('Screenshot saved');
           }
 
-          protocol.close();
-          chrome.kill();
+          util({
+            chrome,
+            protocol
+          });
         })
-      }, delay);
+      }, 2000);
     });
   } catch (e) {
     console.error('Exception while taking screenshot:', e);
