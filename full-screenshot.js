@@ -1,6 +1,7 @@
 const util = require('./util');
 const argv = require('minimist')(process.argv.slice(2));
-const fs = require('fs');
+const Promise = require('bluebird');
+const fs = Promise.promisifyAll(require('fs'));
 
 // 默认参数
 const url = argv.url || 'https://www.baidu.com';
@@ -62,7 +63,6 @@ async function init() {
     const scrollToBottom = fs.readFileSync('./scrollBottom.js', {
       encoding: 'UTF-8'
     });
-    console.log(scrollToBottom);
 
     const evaluate = await Runtime.evaluate({
       expression: scrollToBottom
@@ -73,6 +73,7 @@ async function init() {
         nodeId: documentNodeId
       }
     } = await DOM.getDocument();
+
     const {
       nodeId: bodyNodeId
     } = await DOM.querySelector({
@@ -106,18 +107,19 @@ async function init() {
       });
       const buffer = new Buffer(screenshot.data, 'base64');
 
-      fs.writeFile('screenshot.png', buffer, 'base64', (err) => {
-        if (err) {
-          console.error(err);
-        } else {
-          console.log('Screenshot saved');
-        }
-
-        util({
+      fs.writeFileAsync('screenshot.png', buffer, 'base64').then(() => {
+        console.log('screenshot save success!');
+        util.shutdown({
           chrome,
           protocol
         });
-      })
+      }).catch((e) => {
+        console.log(e);
+        util.shutdown({
+          chrome,
+          protocol
+        });
+      });
     }, 2000);
   });
 };
