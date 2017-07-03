@@ -51,7 +51,9 @@ async function init() {
     fitWindow: false
   };
 
+  // 设置模拟器窗口规格
   await Emulation.setDeviceMetricsOverride(deviceMetrics);
+  // 设置截图区域
   await Emulation.setVisibleSize({
     width: viewportWidth,
     height: viewportHeight
@@ -94,6 +96,7 @@ async function init() {
       nodeId: bodyNodeId
     });
 
+    // 设置截图区域
     await Emulation.setVisibleSize({
       width: viewportWidth,
       height: evaluate.result.value

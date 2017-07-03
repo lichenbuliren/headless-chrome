@@ -1,15 +1,14 @@
 (async function() {
   return new Promise((resolve) => {
     const totalScrollHeight = document.body.scrollHeight;
-    const windowHeight = window.innerHeight;
-    let scrollHeight = windowHeight;
+    let scrollHeight = window.innerHeight;
     let prevScroll = 0;
 
     const timer = setInterval(() => {
       if (scrollHeight < totalScrollHeight) {
         window.scrollTo(prevScroll, scrollHeight);
         prevScroll = scrollHeight;
-        scrollHeight += windowHeight;
+        scrollHeight += scrollHeight;
       } else {
         window.scrollTo(prevScroll, totalScrollHeight);
         clearInterval(timer);
