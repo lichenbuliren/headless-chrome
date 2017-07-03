@@ -9,6 +9,7 @@ const shutdown = ({chrome, protocol}) => {
 const devInit = async () => {
   try {
     const chrome = await chromeLauncher.launch({
+      port: '9222',
       chromeFlags: [
         '--disable-gpu',
         '--hide-scrollbars',

@@ -7,7 +7,7 @@ const fs = Promise.promisifyAll(require('fs'));
 const url = argv.url || 'https://www.baidu.com';
 const format = argv.format === 'jpeg' ? 'jpeg' : 'png';
 const viewportWidth = argv.viewportWidth || 1440;
-const viewportHeight = argv.viewportHeight || 900;
+const viewportHeight = argv.viewportHeight || 400;
 const delay = argv.delay || 0;
 const userAgent = argv.userAgent;
 const fullPage = argv.full || true;
@@ -25,14 +25,16 @@ async function init() {
     DOM,
     Runtime,
     Emulation,
-    Network
+    Network,
+    Console
   } = protocol;
 
   await Promise.all([
     Page.enable(),
     DOM.enable(),
     Runtime.enable(),
-    Network.enable()
+    Network.enable(),
+    Console.enable()
   ]);
 
   if (userAgent) {
@@ -65,8 +67,11 @@ async function init() {
     });
 
     const evaluate = await Runtime.evaluate({
-      expression: scrollToBottom
-    })
+      expression: scrollToBottom,
+      awaitPromise: true
+    });
+
+    console.dir(evaluate.result);
 
     const {
       root: {
