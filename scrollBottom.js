@@ -1,4 +1,4 @@
-(async function() {
+(async () => {
   return new Promise((resolve) => {
     const totalScrollHeight = document.body.scrollHeight;
     let scrollHeight = window.innerHeight;

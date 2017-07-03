@@ -7,7 +7,7 @@ const fs = Promise.promisifyAll(require('fs'));
 const url = argv.url || 'https://www.baidu.com';
 const format = argv.format === 'jpeg' ? 'jpeg' : 'png';
 const viewportWidth = argv.viewportWidth || 1440;
-const viewportHeight = argv.viewportHeight || 400;
+const viewportHeight = argv.viewportHeight || 900;
 const delay = argv.delay || 0;
 const userAgent = argv.userAgent;
 const fullPage = argv.full || true;
@@ -15,119 +15,108 @@ const fullPage = argv.full || true;
 init();
 
 async function init() {
-  const {
-    chrome,
-    protocol
-  } = await util.devInit();
 
-  const {
-    Page,
-    DOM,
-    Runtime,
-    Emulation,
-    Network,
-    Console
-  } = protocol;
-
-  await Promise.all([
-    Page.enable(),
-    DOM.enable(),
-    Runtime.enable(),
-    Network.enable(),
-    Console.enable()
-  ]);
-
-  if (userAgent) {
-    await Network.setUserAgentOverrride({
-      userAgent
-    });
-  }
-
-  const deviceMetrics = {
-    width: viewportWidth,
-    height: viewportHeight,
-    deviceScaleFactor: 0,
-    mobile: false,
-    fitWindow: false
-  };
-
-  // 设置模拟器窗口规格
-  await Emulation.setDeviceMetricsOverride(deviceMetrics);
-  // 设置截图区域
-  await Emulation.setVisibleSize({
-    width: viewportWidth,
-    height: viewportHeight
-  });
-
-  await Page.navigate({
-    url
-  });
-
-  Page.loadEventFired(async () => {
-    const scrollToBottom = fs.readFileSync('./scrollBottom.js', {
-      encoding: 'UTF-8'
-    });
-
-    const evaluate = await Runtime.evaluate({
-      expression: scrollToBottom,
-      awaitPromise: true
-    });
-
-    console.dir(evaluate.result);
+  try {
+    const {
+      chrome,
+      protocol
+    } = await util.devInit();
 
     const {
-      root: {
-        nodeId: documentNodeId
-      }
-    } = await DOM.getDocument();
+      Page,
+      Runtime,
+      Emulation,
+      Network
+    } = protocol;
 
-    const {
-      nodeId: bodyNodeId
-    } = await DOM.querySelector({
-      selector: 'body',
-      nodeId: documentNodeId
-    });
+    await Promise.all([
+      Page.enable(),
+      Runtime.enable(),
+      Network.enable()
+    ]);
 
-    const {
-      model: {
-        height: bodyHeight
-      }
-    } = await DOM.getBoxModel({
-      nodeId: bodyNodeId
-    });
+    if (userAgent) {
+      await Network.setUserAgentOverrride({
+        userAgent
+      });
+    }
 
+    const deviceMetrics = {
+      width: viewportWidth,
+      height: viewportHeight,
+      deviceScaleFactor: 0,
+      mobile: false,
+      fitWindow: false
+    };
+
+    // 设置模拟器窗口规格
+    await Emulation.setDeviceMetricsOverride(deviceMetrics);
     // 设置截图区域
     await Emulation.setVisibleSize({
       width: viewportWidth,
-      height: evaluate.result.value
+      height: viewportHeight
     });
 
-    await Emulation.forceViewport({
-      x: 0,
-      y: 0,
-      scale: 1
+    await Page.navigate({
+      url
     });
 
-    setTimeout(async function () {
-      const screenshot = await Page.captureScreenshot({
+    Page.loadEventFired(async() => {
+
+      let [scrollToBottom, imageLoaded] = await Promise.all([
+        fs.readFileAsync('./scrollBottom.js', { encoding: 'utf-8'}), 
+        fs.readFileAsync('./awaitImageLoad.js', { encoding: 'utf-8'})
+      ]);
+
+      let [evaluateScrollToBottom, evaluateImagesLoaded] =  await Promise.all([
+        Runtime.evaluate({
+          expression: scrollToBottom,
+          awaitPromise: true,
+          returnByValue: true
+        }),
+        Runtime.evaluate({
+          expression: imageLoaded,
+          awaitPromise: true,
+          returnByValue: true
+        })
+      ]);
+
+      // 设置截图区域, 截图高度从计算表达式得到
+      await Emulation.setVisibleSize({
+        width: viewportWidth,
+        height: evaluateScrollToBottom.result.value
+      });
+
+      await Emulation.forceViewport({
+        x: 0,
+        y: 0,
+        scale: 1
+      });
+
+      let screenshot = await Page.captureScreenshot({
         format,
         fromSurface: true
       });
-      const buffer = new Buffer(screenshot.data, 'base64');
 
-      fs.writeFileAsync('screenshot.png', buffer, 'base64').then(() => {
-        console.log('screenshot save success!');
-        util.shutdown({
-          chrome,
-          protocol
-        });
-      }).catch((e) => {
-        console.log(e);
-        util.shutdown({
-          chrome,
-          protocol
-        });
+      let buffer = new Buffer(screenshot.data, 'base64');
+
+      try {
+        let writeFileResult = await fs.writeFileAsync('screenshot.png', buffer, 'base64');
+        console.log('screenshot saved success');
+      } catch (error) {
+        console.log(error);
+      }
+
+      util.shutdown({
+        chrome,
+        protocol
       });
-    }, 2000);
-  });
+    });
+  } catch (error) {
+    console.log(error);
+    util.shutdown({
+      chrome,
+      protocol
+    });
+  }
 };
