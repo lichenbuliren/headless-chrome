@@ -68,18 +68,13 @@ async function init() {
         fs.readFileAsync('./awaitImageLoad.js', { encoding: 'utf-8'})
       ]);
 
-      let [evaluateScrollToBottom, evaluateImagesLoaded] =  await Promise.all([
-        Runtime.evaluate({
-          expression: scrollToBottom,
-          awaitPromise: true,
-          returnByValue: true
-        }),
-        Runtime.evaluate({
-          expression: imageLoaded,
-          awaitPromise: true,
-          returnByValue: true
-        })
-      ]);
+      let evaluateScrollToBottom = await Runtime.evaluate({
+        expression: scrollToBottom,
+        awaitPromise: true,
+        returnByValue: true
+      });
+
+      console.log(evaluateScrollToBottom.result);
 
       // 设置截图区域, 截图高度从计算表达式得到
       await Emulation.setVisibleSize({

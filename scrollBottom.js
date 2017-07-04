@@ -1,19 +1,17 @@
 (async () => {
   return new Promise((resolve) => {
-    const totalScrollHeight = document.body.scrollHeight;
-    let scrollHeight = window.innerHeight;
-    let prevScroll = 0;
-
-    const timer = setInterval(() => {
-      if (scrollHeight < totalScrollHeight) {
-        window.scrollTo(prevScroll, scrollHeight);
-        prevScroll = scrollHeight;
-        scrollHeight += scrollHeight;
-      } else {
-        window.scrollTo(prevScroll, totalScrollHeight);
+    let wHeight = document.body.clientHeight;
+    let doucmentHeight = document.body.scrollHeight;
+    // 注意，在 headless 模式下面 document.body.scrollTop 才能正确返回滚动距离的值
+    // document.documentElement.scrollTop 总是会返回 0 ，
+    // 这个两者表现在 chrome 浏览器的控制太下面是刚好相反的
+    let timer = setInterval(() => {
+      if (document.body.scrollTop >= doucmentHeight - wHeight) {
         clearInterval(timer);
-        resolve(totalScrollHeight);
+        resolve(doucmentHeight + 30);
+      } else {
+        document.body.scrollTop += 30;
       }
-    }, 500);
+    }, 30);
   });
 })();
